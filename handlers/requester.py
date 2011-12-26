@@ -1,4 +1,4 @@
-from requester import Requester, ttypes as o
+from tgen.requester import Requester, ttypes as o
 
 import requests
 from lib.helpers import fixurl
