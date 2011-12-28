@@ -140,7 +140,7 @@ class CachingRequestHandler(RequestHandler):
 class MatureRequestHandler(CachingRequestHandler,LiveRequestHandler):
 
     def urlopen(self, request):
-        print 'urlopen'
+        print 'urlopen: %s' % request.url
 
         response = None
 
@@ -148,7 +148,7 @@ class MatureRequestHandler(CachingRequestHandler,LiveRequestHandler):
             # check the cache
             response = self.cache_urlopen(request)
             if response:
-                print 'response from cache'
+                print 'response from cache: %s' % request.url
 
         # check and make sure we aren't going to have
         # to fail due to rate limiting for the site
@@ -161,11 +161,12 @@ class MatureRequestHandler(CachingRequestHandler,LiveRequestHandler):
         # make our request
         if not response and allowed_rate:
             response = self.live_urlopen(request)
-            print 'live response'
+            print 'live response: %s' % request.url
             # update the cache
             self.set_cache(request,response)
 
         # return the response
+        print 'returning urlopen: %s' % request.url
         return response
 
     def check_rate_allowed(self, request):
