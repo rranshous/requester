@@ -8,7 +8,7 @@ from thrift.protocol import TBinaryProtocol
 from thrift.transport import TTransport
 
 from hashlib import sha1
-from redis import Redis
+import memcache
 
 class RequestHandler(object):
     def __init__(self):
@@ -87,10 +87,10 @@ class LiveRequestHandler(RequestHandler):
         return response
 
 class CachingRequestHandler(RequestHandler):
-    def __init__(self,redis_host='127.0.0.1',cache_duration=2*60*60):
-        self.redis_host = redis_host
-        self.cache_duration = cache_duration
-        self.rc = Redis(self.redis_host)
+    def __init__(self,memcached_host='127.0.0.1',memcached_port=9119):
+        self.memcached_host = memcached_host
+        self.memcached_port = memcached_port
+        self.mc = memcache.Client(self.memcached_host,self.memcached_port)
         self.pfactory = TBinaryProtocol.TBinaryProtocolFactory()
         super(CachingRequestHandler,self).__init__()
 
@@ -100,7 +100,7 @@ class CachingRequestHandler(RequestHandler):
     def cache_urlopen(self,request):
         # check the cache
         cache_key = self.get_cache_key(request)
-        cache_response = self.rc.get(cache_key)
+        cache_response = self.mc.get(cache_key)
 
         # no cache hit?
         if not cache_response:
@@ -116,8 +116,7 @@ class CachingRequestHandler(RequestHandler):
         url = request.url
         cache_key = self.get_cache_key(request)
         data = self._serialize_o(response)
-        self.rc.set(cache_key,data)
-        self.rc.expire(cache_key,self.cache_duration)
+        self.mc.set(cache_key,data)
         return True
 
     def get_cache_key(self,request):
