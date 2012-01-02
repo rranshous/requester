@@ -101,11 +101,14 @@ class CachingRequestHandler(RequestHandler):
     def cache_urlopen(self,request):
         # check the cache
         cache_key = self.get_cache_key(request)
+        print 'getting: %s' % cache_key
         cache_response = self.mc.get(cache_key)
 
         # no cache hit?
         if not cache_response:
             return None # TODO: see if i can even do this
+
+        print 'got: %s' % cache_response
 
         # deserialize our response
         response = self._deserialize_o(o.Response,cache_response)
