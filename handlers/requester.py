@@ -87,7 +87,7 @@ class LiveRequestHandler(RequestHandler):
         return response
 
 class CachingRequestHandler(RequestHandler):
-    def __init__(self,memcached_host='127.0.0.1',memcached_port=9119):
+    def __init__(self,memcached_host='127.0.0.1',memcached_port=11211):
         self.memcached_host = memcached_host
         self.memcached_port = memcached_port
         self.mc = memcache.Client(['%s:%s' %
