@@ -108,7 +108,7 @@ class CachingRequestHandler(RequestHandler):
         if not cache_response:
             return None # TODO: see if i can even do this
 
-        print 'got: %s' % cache_response
+        print 'got: %s' % len(cache_response)
 
         # deserialize our response
         response = self._deserialize_o(o.Response,cache_response)
