@@ -47,7 +47,7 @@ class RequestHandler(object):
 
 class LiveRequestHandler(RequestHandler):
 
-    timeout = 5
+    timeout = 30
 
     def urlopen(self,request):
         return self.live_urlopen(request)
