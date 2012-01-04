@@ -2,13 +2,17 @@ from tgen.requester import Requester, ttypes as o
 
 import requests
 from lib.helpers import fixurl
-from time import time
+from time import time, sleep
 
 from thrift.protocol import TBinaryProtocol
 from thrift.transport import TTransport
 
 from hashlib import sha1
+from redis import Redis
 import memcache
+from urlparse import urlparse
+
+from lib.ratelimiter import RateLimiter
 
 class RequestHandler(object):
     def __init__(self):
@@ -42,6 +46,12 @@ class RequestHandler(object):
         """
         returns the rate you are allowed to pull data from
         the host at
+        """
+        raise NotImplementedError
+
+    def update_rate(self, response):
+        """
+        updates our rate counter based on the response
         """
         raise NotImplementedError
 
@@ -93,7 +103,6 @@ class CachingRequestHandler(RequestHandler):
         self.mc = memcache.Client(['%s:%s' %
                             (self.memcached_host,self.memcached_port)])
         self.pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        super(CachingRequestHandler,self).__init__()
 
     def urlopen(self,request):
         return self.cached_urlopen(request)
@@ -140,7 +149,65 @@ class CachingRequestHandler(RequestHandler):
         ret.read(prot)
         return ret
 
-class MatureRequestHandler(CachingRequestHandler,LiveRequestHandler):
+class RateLimitingRequestHandler(RequestHandler):
+
+    def __init__(self, redis_host='127.0.0.1',
+                       max_data_rate=(
+                           1024 * 1024 * 1, # 1MB
+                           10)): # per N seconds
+
+        self.redis_host = redis_host
+        self.rc = Redis(self.redis_host)
+
+        # based on bytes / s
+        self.max_data_rate = max_data_rate
+
+        # our limiter
+        self.rl = RateLimiter(
+            self.rc, 'httplimiter',
+            max_data_rate[0] * 2, # span
+            float(max_data_rate[1]) / 10 # grainularity
+        )
+
+    def check_rate_allowed(self, request):
+        """
+        returns False if we have already passed the limit
+        for the given site. We are limiting our rate to
+        a given MB/s
+        """
+
+        size, seconds = self.max_data_rate
+        root = self._get_url_root(request)
+        count = self.rl.count(root,seconds)
+        # we are going to return the max # of bytes
+        return size - count
+
+    def update_rate(self, response):
+        """
+        updates the rate tracking info based on the response
+        """
+        root = self._get_url_root(response)
+        self.rl.add(root,len(response.content)) # bytes
+
+    def _get_url_root(self, response):
+        return urlparse(response.url).netloc
+
+class MatureRequestHandler(CachingRequestHandler,
+                           LiveRequestHandler,
+                           RateLimitingRequestHandler):
+
+    def __init__(self, redis_host=None,
+                       memcache_host=None,
+                       memcache_port=None,
+                       max_data_rate=None):
+
+        # initialize the lil ppl
+        args = [x for x in [memcache_host,memcache_port] if x]
+        CachingRequestHandler.__init__(self,*args)
+
+        args = [x for x in [redis_host,max_data_rate] if x]
+        RateLimitingRequestHandler.__init__(self,*args)
+
 
     def urlopen(self, request):
         print 'urlopen: %s' % request.url
@@ -156,24 +223,32 @@ class MatureRequestHandler(CachingRequestHandler,LiveRequestHandler):
         # check and make sure we aren't going to have
         # to fail due to rate limiting for the site
         # this should return the rate at which we can
-        # pull data. for now a non 0 is an OK
+        # pull data.
         if not response:
-            allowed_rate = self.check_rate_allowed(request)
-            print 'allow rate: %s' % allowed_rate
+            self.wait_for_allowed(request)
 
         # make our request
-        if not response and allowed_rate:
+        if not response:
             response = self.live_urlopen(request)
             print 'live response: %s' % request.url
             # update the cache
             self.set_cache(request,response)
 
+        # update the rate limiter
+        self.update_rate(response)
+
         # return the response
         print 'returning urlopen: %s' % request.url
         return response
 
-    def check_rate_allowed(self, request):
-        return 1
+    def wait_for_allowed(self, request):
+        allowed_rate = self.check_rate_allowed(request)
+        print 'allow rate: %s' % allowed_rate
+        while allowed_rate < 1:
+            sleep(1)
+            allowed_rate = self.check_rate_allowed(request)
+            print 'allow rate: %s' % allowed_rate
+        return True
 
 
 def run():
