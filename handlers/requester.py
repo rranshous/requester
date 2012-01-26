@@ -3,6 +3,7 @@ from tgen.requester import Requester, ttypes as o
 import requests
 from lib.helpers import fixurl
 from time import time, sleep
+import random
 
 from thrift.protocol import TBinaryProtocol
 from thrift.transport import TTransport
@@ -58,6 +59,7 @@ class RequestHandler(object):
 class LiveRequestHandler(RequestHandler):
 
     timeout = 30
+    user_agent = 'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/535.6 (KHTML, like Gecko) Chrome/16.0.897.0 Safari/535.6'
 
     def urlopen(self,request):
         return self.live_urlopen(request)
@@ -76,6 +78,7 @@ class LiveRequestHandler(RequestHandler):
             http_response = getter(request.url,
                                    cookies=request.cookies,
                                    timeout=self.timeout,
+                                   headers={'User-Agent':self.user_agent},
                                    # don't just get headers
                                    prefetch=True,
                                    # we want raw data, not unicode
@@ -111,7 +114,6 @@ class CachingRequestHandler(RequestHandler):
     def cache_urlopen(self,request):
         # check the cache
         cache_key = self.get_cache_key(request)
-        print 'getting: %s' % cache_key
         cache_response = self.mc.get(cache_key)
 
         # no cache hit?
@@ -144,7 +146,6 @@ class CachingRequestHandler(RequestHandler):
         return trans.getvalue()
 
     def _deserialize_o(self, objtype, data):
-        print 'deserialize: %s' % len(data)
         prot = self.pfactory.getProtocol(TTransport.TMemoryBuffer(data))
         ret = objtype()
         ret.read(prot)
@@ -154,8 +155,8 @@ class RateLimitingRequestHandler(RequestHandler):
 
     def __init__(self, redis_host='127.0.0.1',
                        max_data_rate=(
-                           1024 * 1024 * 1, # 1MB
-                           10)): # per N seconds
+                           1024 * 1024 * 3, # 3MB
+                           10)): # per 10 seconds
 
         self.redis_host = redis_host
         self.rc = Redis(self.redis_host)
@@ -167,7 +168,7 @@ class RateLimitingRequestHandler(RequestHandler):
         self.rl = RateLimiter(
             self.rc, 'httplimiter',
             max_data_rate[0] * 2, # span
-            float(max_data_rate[1]) / 10 # grainularity
+            float(max_data_rate[1]) / 100 # grainularity
         )
 
     def check_rate_allowed(self, request):
@@ -249,6 +250,7 @@ class MatureRequestHandler(CachingRequestHandler,
             sleep(1)
             allowed_rate = self.check_rate_allowed(request)
             print 'allow rate: %s' % allowed_rate
+        print 'allowed!'
         return True
 
 
