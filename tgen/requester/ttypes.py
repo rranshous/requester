@@ -214,6 +214,7 @@ class Response:
    - from_cache
    - response_time
    - timestamp
+   - cookies
   """
 
   thrift_spec = (
@@ -225,9 +226,10 @@ class Response:
     (5, TType.BOOL, 'from_cache', None, None, ), # 5
     (6, TType.DOUBLE, 'response_time', None, None, ), # 6
     (7, TType.DOUBLE, 'timestamp', None, None, ), # 7
+    (8, TType.MAP, 'cookies', (TType.STRING,None,TType.STRING,None), None, ), # 8
   )
 
-  def __init__(self, url=None, status_code=None, headers=None, content=None, from_cache=None, response_time=None, timestamp=None,):
+  def __init__(self, url=None, status_code=None, headers=None, content=None, from_cache=None, response_time=None, timestamp=None, cookies=None,):
     self.url = url
     self.status_code = status_code
     self.headers = headers
@@ -235,6 +237,7 @@ class Response:
     self.from_cache = from_cache
     self.response_time = response_time
     self.timestamp = timestamp
+    self.cookies = cookies
 
   def read(self, iprot):
     if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
@@ -286,6 +289,17 @@ class Response:
           self.timestamp = iprot.readDouble();
         else:
           iprot.skip(ftype)
+      elif fid == 8:
+        if ftype == TType.MAP:
+          self.cookies = {}
+          (_ktype26, _vtype27, _size25 ) = iprot.readMapBegin() 
+          for _i29 in xrange(_size25):
+            _key30 = iprot.readString();
+            _val31 = iprot.readString();
+            self.cookies[_key30] = _val31
+          iprot.readMapEnd()
+        else:
+          iprot.skip(ftype)
       else:
         iprot.skip(ftype)
       iprot.readFieldEnd()
@@ -307,9 +321,9 @@ class Response:
     if self.headers != None:
       oprot.writeFieldBegin('headers', TType.MAP, 3)
       oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.headers))
-      for kiter25,viter26 in self.headers.items():
-        oprot.writeString(kiter25)
-        oprot.writeString(viter26)
+      for kiter32,viter33 in self.headers.items():
+        oprot.writeString(kiter32)
+        oprot.writeString(viter33)
       oprot.writeMapEnd()
       oprot.writeFieldEnd()
     if self.content != None:
@@ -327,6 +341,14 @@ class Response:
     if self.timestamp != None:
       oprot.writeFieldBegin('timestamp', TType.DOUBLE, 7)
       oprot.writeDouble(self.timestamp)
+      oprot.writeFieldEnd()
+    if self.cookies != None:
+      oprot.writeFieldBegin('cookies', TType.MAP, 8)
+      oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.cookies))
+      for kiter34,viter35 in self.cookies.items():
+        oprot.writeString(kiter34)
+        oprot.writeString(viter35)
+      oprot.writeMapEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()

@@ -92,6 +92,7 @@ class LiveRequestHandler(RequestHandler):
         response.content = http_response.content
         response.timestamp = time()
         response.response_time = (time() - s)
+        response.cookies = http_response.cookies
 
         # and we're done!
         return response

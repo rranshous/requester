@@ -21,7 +21,8 @@ struct Response {
     4: optional string content,
     5: optional bool from_cache,
     6: optional double response_time,
-    7: optional double timestamp
+    7: optional double timestamp,
+    8: optional map<string,string> cookies
 }
 
 
