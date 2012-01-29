@@ -192,7 +192,13 @@ class RateLimitingRequestHandler(RequestHandler):
         self.rl.add(root,len(response.content)) # bytes
 
     def _get_url_root(self, response):
-        return urlparse(response.url).netloc
+        # get url w/ path
+        url = urlparse(response.url).netloc
+
+        # kill off lvls of subdomain which are just ints
+        url = '.'.join([x for x in url.split('.') if not x.isdigit()])
+
+        return url
 
 class MatureRequestHandler(CachingRequestHandler,
                            LiveRequestHandler,
