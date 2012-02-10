@@ -167,8 +167,8 @@ class RateLimitingRequestHandler(RequestHandler):
         # our limiter
         self.rl = RateLimiter(
             self.rc, 'httplimiter',
-            max_data_rate[0] * 2, # span
-            float(max_data_rate[1]) / 100 # grainularity
+            max_data_rate[1] / 10,
+            max_data_rate[1])
         )
 
     def check_rate_allowed(self, request):
